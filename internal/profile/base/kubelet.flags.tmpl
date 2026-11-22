@@ -1,0 +1,17 @@
+{{ .Binary }}
+{{- if .BootstrapKubeconfigFile }}
+--bootstrap-kubeconfig={{ .BootstrapKubeconfigFile }}
+{{- end }}
+--cert-dir={{ .KubeletCertDir }}
+--config={{ .KubeletConfigFile }}
+{{- if .KubeletRootDir }}
+--root-dir={{ .KubeletRootDir }}
+{{- end }}
+--container-runtime-endpoint={{ .ContainerRuntimeEndpoint }}
+{{- if .Hostname }}
+--hostname-override={{ .Hostname }}
+{{- end }}
+--kubeconfig={{ .KubeletKubeconfigFile }}
+{{- if .NodeIP }}
+--node-ip={{ .NodeIP }}
+{{- end }}

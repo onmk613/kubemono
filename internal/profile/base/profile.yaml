@@ -1,0 +1,75 @@
+# kubemono Profile base —— 唯一的组件配置基线。
+#
+# kubemono 只支持二进制部署，profile 不随 Kubernetes 小版本分目录。
+#
+# 约定：
+#   1. 组件的 flag 只存在于 *.flags.tmpl —— 模板是唯一事实来源。这里不登记一份
+#      "默认值表"：那份数据只会被 Load 校验、渲染时从不读取，而且已经和模板漂移。
+#   2. components.<name>.templates 的逻辑名全局唯一，文件路径相对本目录。
+#   3. flags 模板约定：一行一个 argv 元素，第一行是二进制；默认 flag 按名字排序书写，
+#      extraArgs 由 extraFlags 追加。
+#   4. 健康检查端点不在这里登记：以 internal/controlplane.defaultHealth 为唯一来源。
+version: base
+
+components:
+  # ============================ kube-apiserver ============================
+  kube-apiserver:
+    args: [kube-apiserver]
+    templates:
+      apiserver.flags: apiserver.flags.tmpl
+
+  # ====================== kube-controller-manager ========================
+  kube-controller-manager:
+    args: [kube-controller-manager]
+    templates:
+      controller-manager.flags: controller-manager.flags.tmpl
+
+  # ============================ kube-scheduler ===========================
+  kube-scheduler:
+    args: [kube-scheduler]
+    templates:
+      scheduler.flags: scheduler.flags.tmpl
+
+  # ================================= etcd ================================
+  etcd:
+    args: [etcd]
+    templates:
+      etcd.flags: etcd.flags.tmpl
+
+  # ================================ kubelet ==============================
+  kubelet:
+    args: [kubelet]
+    templates:
+      kubelet.flags: kubelet.flags.tmpl
+      kubelet.config: kubelet-config.yaml.tmpl
+
+  # ============================= kube-router =============================
+  # CNI 插件（§14.2）。以 DaemonSet 运行，hostNetwork，
+  # kubeconfig 指向 https://127.0.0.1:6443，不依赖 ClusterIP。
+  # kube-router 只做 CNI/路由/网络策略，Service 代理由 kube-proxy 承担。
+  kube-router:
+    args: [kube-router]
+    templates:
+      kube-router.flags: kube-router.flags.tmpl
+      kube-router.podspec: kube-router.podspec.tmpl
+      kube-router.cni.config: kube-router.cni.tmpl
+
+  # ============================= kube-proxy =============================
+  # Service 代理由 kube-proxy 以 DaemonSet 运行（hostNetwork）：
+  # 默认 ipvs，可配置 iptables/nftables（nftables 需要内核 >= 5.13）。
+  kube-proxy:
+    args: [kube-proxy]
+    templates:
+      kube-proxy.flags: kube-proxy.flags.tmpl
+      kube-proxy.podspec: kube-proxy.podspec.tmpl
+      kube-proxy.config: kube-proxy.config.tmpl
+
+  # ============================ local-proxy =============================
+  # worker 本地代理（§16.1）：haproxy 监听 127.0.0.1:<port>，后端是 master 列表。
+  #
+  # haproxy 不是 Kubernetes 组件（它没有 flags），因此这里只登记配置文件与
+  # 静态 Pod 清单模板；配置文件路径是约定位置 /etc/haproxy/haproxy.cfg。
+  local-proxy:
+    templates:
+      local-proxy.config: haproxy.cfg.tmpl
+      local-proxy.manifest: staticpod/haproxy.yaml.tmpl

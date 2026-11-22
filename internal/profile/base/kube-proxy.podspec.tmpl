@@ -1,0 +1,62 @@
+# kube-proxy 的 Pod 定义。
+#
+# Service 代理统一由 kube-proxy 承担：hostNetwork + 自己的 ServiceAccount token，
+# kubeconfig 指向本机 apiserver（master）或 worker 本地代理，不依赖 ClusterIP。
+hostNetwork: true
+priorityClassName: system-node-critical
+# 所有节点（含控制面与未就绪节点）都必须运行 Service 代理。
+tolerations:
+  - operator: Exists
+containers:
+  - name: kube-proxy
+    image: {{ .Image | quote }}
+    imagePullPolicy: IfNotPresent
+    command: {{ flags "kube-proxy" | argvSeq }}
+    # Node 名必须来自 downward API：DaemonSet 与 ConfigMap 都是全集群一份。
+    env:
+      - name: NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+    securityContext:
+      privileged: true
+    livenessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /livez
+        port: {{ .KubeProxyHealthzPort }}
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    readinessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /healthz
+        port: {{ .KubeProxyHealthzPort }}
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    volumeMounts:
+      - name: kube-proxy-config
+        mountPath: /var/lib/kube-proxy
+        readOnly: true
+      - name: lib-modules
+        mountPath: /lib/modules
+        readOnly: true
+      - name: xtables-lock
+        mountPath: /run/xtables.lock
+volumes:
+  - name: kube-proxy-config
+    configMap:
+      name: {{ .KubeProxyConfigMapName | quote }}
+      defaultMode: 0644
+  - name: lib-modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: xtables-lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate

@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 只需要读仓库；CI 不发布任何东西。
+permissions:
+  contents: read
+
+# 同一分支/PR 的新提交取消旧任务，避免排队。
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: fmt / vet / test / lint / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # 质量工具按 Makefile 的固定版本从源码安装：官方预编译二进制可能由不兼容的
+      # Go/x-tools 组合构建，读不了当前 toolchain 的导出数据。版本固定在 Makefile，
+      # 命中 bin/ 缓存时跳过编译。
+      - name: Cache quality tools
+        id: tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            bin/golangci-lint
+            bin/deadcode
+          key: tools-${{ runner.os }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('Makefile') }}
+
+      - name: Install quality tools
+        if: steps.tools.outputs.cache-hit != 'true'
+        run: make tools
+
+      # 与本地 `make ci` 完全同一条门禁：
+      # gofmt / GOOS=linux vet / -race 单测 / linux/amd64+arm64 构建 /
+      # golangci-lint / deadcode / 二进制边界 / 文档链接。
+      - name: Run gate
+        run: make ci

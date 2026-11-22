@@ -1,0 +1,45 @@
+global
+    log stdout format raw local0
+    maxconn 20000
+    # 不声明 admin socket：容器以非 root 运行，/var/run 不可写；统计只走 HTTP。
+    stats timeout 30s
+
+defaults
+    log     global
+    mode    tcp
+    option  tcplog
+    option  dontlognull
+    option  redispatch
+    option  http-server-close
+    retries 3
+    timeout connect 5s
+    timeout client  1m
+    timeout server  1m
+
+# 统计与健康端点只监听本机。
+listen stats
+    bind 127.0.0.1:{{ .StatsPort }}
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+
+# worker 上的组件通过 127.0.0.1:{{ .ProxyPort }} 访问 apiserver。
+frontend kube-apiserver
+    bind 127.0.0.1:{{ .ProxyPort }}
+    mode tcp
+    option tcplog
+    default_backend kube-apiserver-backend
+
+# haproxy 3.3+ 不允许 frontend 与 backend 同名。
+backend kube-apiserver-backend
+    mode tcp
+    balance roundrobin
+    # 健康检查用 apiserver 的 /readyz（HTTPS，忽略证书校验）。
+    option httpchk
+    http-check send meth GET uri /readyz ver HTTP/1.1 hdr Host localhost
+    http-check expect status 200
+    default-server inter 5s fastinter 1s downinter 5s rise 2 fall 3 check check-ssl verify none
+{{- range .Backends }}
+    server {{ .Name }} {{ .Address }}:{{ .Port }} check
+{{- end }}

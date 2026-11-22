@@ -1,0 +1,18 @@
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+bindAddress: 0.0.0.0
+clientConnection:
+  kubeconfig: {{ .KubeProxyKubeconfigFile }}
+mode: {{ .KubeProxyMode }}
+# 集群级 ConfigMap 不能按节点写 hostnameOverride；Pod 通过
+# --hostname-override=$(NODE_NAME) 使用自己的 Node 名。
+detectLocalMode: ClusterCIDR
+detectLocal:
+  clusterCIDRs:
+    - {{ .ClusterCIDR }}
+healthzBindAddress: 127.0.0.1:{{ .KubeProxyHealthzPort }}
+metricsBindAddress: 127.0.0.1:{{ .KubeProxyMetricsPort }}
+{{- if eq .KubeProxyMode "ipvs" }}
+ipvs:
+  scheduler: {{ .KubeProxyScheduler }}
+{{- end }}

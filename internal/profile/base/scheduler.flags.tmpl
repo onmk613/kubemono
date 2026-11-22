@@ -1,0 +1,7 @@
+{{ .Binary }}
+--authentication-kubeconfig={{ .SchedulerKubeconfig }}
+--authorization-kubeconfig={{ .SchedulerKubeconfig }}
+--bind-address=127.0.0.1
+--kubeconfig={{ .SchedulerKubeconfig }}
+--leader-elect=true
+--secure-port=10259

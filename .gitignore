@@ -1,0 +1,21 @@
+# 构建产物
+/bin/
+/dist/
+
+# 编辑器与系统文件
+.DS_Store
+.vscode/
+.idea/
+
+# 本地缓存与回归物料
+/tmp/
+/.gocache
+/.work/
+/.golangci-cache/
+
+# 审计/分析产物，不入库
+/reports/
+
+# 离线包
+*.tar.zst
+*.tar.zst.sha256

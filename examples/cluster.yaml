@@ -1,0 +1,123 @@
+# 完整字段、约束与常见写法见 docs/cluster-config.md。
+
+# k8s 组件的唯一版本入口：全部组件（含 kube-proxy）整组跟随它，不能逐个指定。
+# 任意版本都允许；与默认版本不同时只打印 warning。该字段只在新建集群时生效，
+# 换版本必须新建集群并迁移工作负载，不能原地修改。
+# kubernetesVersion: v1.37.4
+
+cluster:
+  hosts:
+    # name 只是 cluster.yaml 身份键；nodeName 才是 kubelet/etcd/证书的节点名。
+    #   nodeName: hostname（默认）| address | 显式名字
+    #
+    # 角色组合：
+    #   [master]         纯控制面（不装 kubelet/containerd/CNI，不注册 Node）
+    #   [master, worker] 混合节点（控制面 + 业务负载，默认可调度）
+    #   [worker]         纯工作负载
+    - { name: m1, nodeName: hostname, address: 10.8.2.101,  roles: [master, worker] }
+    - { name: m2, nodeName: hostname, address: 10.8.2.102,  roles: [master, worker] }
+    - { name: m3, nodeName: hostname, address: 10.8.2.103,  roles: [master, worker] }
+    - { name: w1, nodeName: hostname, address: 10.8.2.104, roles: [worker], labels: { zone: a } }
+
+  hooks:
+    # preHostInit: ["/usr/local/bin/pre-host.sh"]
+    # postRuntime: ["/usr/local/bin/post-runtime.sh"]
+    # postInstall: ["/usr/local/bin/post-install.sh"]
+
+node:
+  host:
+    # 省略这两项时使用按网络配置生成的默认值；写了就是整份替换（不是追加）。
+    # 默认值已按 IPVS + kube-router overlay 展开；按环境增删后只执行这里列出的项。
+    kernelModules:
+      - overlay
+      - br_netfilter
+      - nf_conntrack
+      - ip_vs
+      - ip_vs_rr
+      - ip_vs_wrr
+      - ip_vs_sh
+      - ipip
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.bridge.bridge-nf-call-iptables: "1"
+      fs.inotify.max_user_instances: "8192"
+      fs.inotify.max_user_watches: "524288"
+
+  runtime:
+    containerd:
+      root: /var/lib/containerd        #
+      systemdCgroup: true
+      registries:
+        mirrors: { docker.io: ["https://registry.example.com"] }        #
+        configs: {}
+    # custom:                          # 任一字段非空即启用 custom；kubemono 不写运行时配置
+    #   criSocket: unix:///run/crio/crio.sock
+    #   cgroupDriver: systemd          # systemd | cgroupfs；空=kubelet 使用 systemd
+    #   serviceName: crio
+    # CNI 插件仍会安装到 /opt/cni/bin（与运行时模式无关）；CRI 的 CNI bin_dir 要指向这里。
+
+  kubelet:
+    rootDir: /var/lib/kubelet          # kubelet 数据目录（--root-dir）
+    configPatch: {}                    # kubelet 配置文件的覆盖项（如 maxPods）
+    extraArgs: {}                      # kubelet flag 透传；同名 flag 覆盖 kubemono 默认值
+
+controlPlane:
+  pki:
+    keyAlgorithm: rsa2048              # rsa2048 | ecdsa-p256
+    caValidity: 87600h
+    certValidity: 8760h
+    # externalCA: { certFile: /root/ca.crt, keyFile: /root/ca.key }         # 导入企业 CA
+
+  etcd:
+    local:
+      dataDir: /var/lib/etcd           #
+      extraArgs: {}                    # --data-dir 由 dataDir 管理
+    # external:                        # 任一字段非空即切换为外部 etcd
+    #   endpoints: [https://etcd-1.example.com:2379, https://etcd-2.example.com:2379]
+    #   caFile: /usr/local/kubemono/external-etcd/ca.crt
+    #   certFile: /usr/local/kubemono/external-etcd/client.crt
+    #   keyFile: /usr/local/kubemono/external-etcd/client.key
+
+  # externalEndpoints: [k8s.example.com:6443]                          # 稳定 VIP/DNS；设置后 worker 不再部署 haproxy
+  # certSANs: [10.0.0.100]                                             #
+  apiServer:         { extraArgs: {} }                                 #
+  controllerManager: { extraArgs: {} }                                 #
+  scheduler:         { extraArgs: {} }                                 #
+  audit:
+    enabled: true
+    logMaxAge: 7
+    logMaxBackup: 10
+    logMaxSize: 100
+    # policy: ""                                                     # 为空使用内置安全策略；完整 audit.k8s.io/v1 Policy
+
+network:
+  plugin: kube-router                # kube-router | none
+  # plugin=none：不写 CNI 配置，由用户部署第三方 CNI；kube-proxy 默认仍由 kubemono 部署。
+  podCIDR: 10.244.0.0/16             #
+  serviceCIDR: 10.96.0.0/12          #
+  clusterDNS: ""                     # 留空则取 Service 网段第 10 个地址
+  dnsDomain: cluster.local           #
+  nodeCIDRMaskSize: 24               #
+  # plugin=kube-router 时 kube-router 只做 CNI；Service 代理固定由 kube-proxy 承担。
+  kubeRouter:
+    runRouter: true                  #
+    runFirewall: true                #
+    enableOverlay: true              #
+    overlayType: subnet              #
+    clusterAsn: 64512                #
+    mtu: 0                           #
+    extraArgs: {}                    # 透传/覆盖 kube-router flag
+  kubeProxy:
+    enabled: true                    # 第三方 CNI 自带 kube-proxy replacement 时置为 false
+    mode: ipvs                       # ipvs（默认）| iptables | nftables（内核 >= 5.13）
+    scheduler: rr                    # 仅 ipvs 模式生效
+
+addons:
+  coredns:       { enabled: true, replicas: 2, upstream: [/etc/resolv.conf], logFormat: text }  #
+
+images:
+  # 按组件覆盖完整镜像引用；key 必须是 BOM 里声明了 image 的组件。
+  # components:
+  #   coredns: registry.example.com/kubemono/coredns/coredns:v1.14.6
+  #   pause:   registry.example.com/kubemono/pause:3.10.2
+  # componentVersions: { coredns: v1.14.7 }                           # 非 k8s 组件版本覆盖，需先准备物料

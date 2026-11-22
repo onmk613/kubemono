@@ -1,0 +1,105 @@
+# kubemono BOM —— 唯一的版本来源
+#
+# 规则：
+#   1. 一个 kubemono 版本固定一套默认组件版本；k8s 组件只能随 kubernetes 版本升级
+#   2. source 描述下载地址；组件字节的哈希由打包时写入 meta.json，不另维护
+#      release 侧校验清单。
+#   3. 不在此文件出现的组件不允许出现在物料里。
+#   4. 非 k8s 组件可由 cluster.yaml 的 images.componentVersions 覆盖；任意版本
+#      都允许，与默认版本不同时只打印 warning。
+#   5. k8s 组件由 cluster.yaml 的顶层 kubernetesVersion 整组控制，所有组件必须
+#      同版本；不允许在 componentVersions 里逐个指定。
+#      任意版本都允许，与默认版本不同时只打印 warning；kubemono 只保证默认版本。
+#   6. 镜像在组件的 image 字段写全（含 registry host 与 tag），没有全局仓库前缀；
+#      cluster.yaml 的 images.components.<name> 按组件覆盖。
+release: v1.37.1-km.1
+kubernetes: v1.37.1
+
+# 支持的架构，当前只针对Linux
+arch:
+  - amd64
+  - arm64
+
+components:
+  # 容器运行时组件
+  containerd:
+    version: v2.4.2
+    category: runtime
+    binaries: [containerd, containerd-shim-runc-v2, ctr]
+    source: https://github.com/containerd/containerd/releases/download/{version}/containerd-{versiontrim}-linux-{arch}.tar.gz
+  runc:
+    version: v1.5.2
+    category: runtime
+    binaries: [runc]
+    source: https://github.com/opencontainers/runc/releases/download/{version}/runc.{arch}
+  cni-plugins:
+    version: v1.9.1
+    category: cni
+    # 默认打包上游归档里的全部插件：kubemono 自己的 kube-router 链路只用
+    # bridge/host-local/loopback/portmap，但 plugin=none 或自定义网络
+    # （macvlan/ipvlan/SR-IOV/带宽/调优等）需要其余插件，不能让用户再去找包。
+    # 部署时仍按这个白名单逐个复制到 /opt/cni/bin，不在节点上解压整包；
+    # 归档里新增/删除插件会在这里显式体现（缺成员时打包直接报错）。
+    #
+    # All upstream plugins are bundled by default: kubemono's own config only uses
+    # bridge/host-local/loopback/portmap, but custom CNI setups need the rest.
+    binaries: [bandwidth, bridge, dhcp, dummy, firewall, host-device, host-local, ipvlan, loopback, macvlan, portmap, ptp, sbr, static, tap, tuning, vlan, vrf]
+    source: https://github.com/containernetworking/plugins/releases/download/{version}/cni-plugins-linux-{arch}-{version}.tgz
+  pause:
+    version: "3.10.2"
+    category: image
+    image: registry.k8s.io/pause:{version}
+
+  # Kubernetes 组件
+  kube-apiserver:
+    version: v1.37.1
+    category: k8s
+    binaries: [kube-apiserver]
+    source: https://dl.k8s.io/{version}/bin/linux/{arch}/kube-apiserver
+  kube-controller-manager:
+    version: v1.37.1
+    category: k8s
+    binaries: [kube-controller-manager]
+    source: https://dl.k8s.io/{version}/bin/linux/{arch}/kube-controller-manager
+  kube-scheduler:
+    version: v1.37.1
+    category: k8s
+    binaries: [kube-scheduler]
+    source: https://dl.k8s.io/{version}/bin/linux/{arch}/kube-scheduler
+  kubelet:
+    version: v1.37.1
+    category: k8s
+    binaries: [kubelet]
+    source: https://dl.k8s.io/{version}/bin/linux/{arch}/kubelet
+  kube-proxy:
+    version: v1.37.1
+    category: k8s
+    image: registry.k8s.io/kube-proxy:{version}
+  kubectl:
+    version: v1.37.1
+    category: k8s
+    binaries: [kubectl]
+    source: https://dl.k8s.io/{version}/bin/linux/{arch}/kubectl
+  etcd:
+    version: v3.7.2
+    category: etcd
+    binaries: [etcd, etcdctl, etcdutl]
+    source: https://github.com/etcd-io/etcd/releases/download/{version}/etcd-{version}-linux-{arch}.tar.gz
+
+  # 网络组件
+  kube-router:
+    version: v2.12.0
+    category: network
+    image: docker.io/cloudnativelabs/kube-router:{version}
+
+  # 附加组件
+  coredns:
+    version: v1.14.6
+    category: addon
+    image: registry.k8s.io/coredns/coredns:{version}
+
+  # 负载均衡组件
+  haproxy:
+    version: "3.4"
+    category: lb
+    image: docker.io/library/haproxy:{version}

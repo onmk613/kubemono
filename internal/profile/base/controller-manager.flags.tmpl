@@ -1,0 +1,22 @@
+{{ .Binary }}
+--allocate-node-cidrs=true
+--authentication-kubeconfig={{ .ControllerManagerKubeconfig }}
+--authorization-kubeconfig={{ .ControllerManagerKubeconfig }}
+--bind-address=127.0.0.1
+--client-ca-file={{ .ClientCAFile }}
+--cluster-cidr={{ .ClusterCIDR }}
+{{- if .ClusterSigningCertFile }}
+--cluster-signing-cert-file={{ .ClusterSigningCertFile }}
+{{- end }}
+{{- if .ClusterSigningKeyFile }}
+--cluster-signing-key-file={{ .ClusterSigningKeyFile }}
+{{- end }}
+--controllers=*,bootstrapsigner,tokencleaner
+--kubeconfig={{ .ControllerManagerKubeconfig }}
+--leader-elect=true
+--node-cidr-mask-size={{ .NodeCIDRMaskSize }}
+--requestheader-client-ca-file={{ .FrontProxyCACertFile }}
+--root-ca-file={{ .RootCAFile }}
+--secure-port=10257
+--service-account-private-key-file={{ .ServiceAccountPrivateKeyFile }}
+--use-service-account-credentials=true

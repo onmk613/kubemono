@@ -1,0 +1,95 @@
+{{/* kube-router 的 Pod 定义；internal/network 把它反序列化成 PodSpec，放进 DaemonSet。 */}}
+hostNetwork: true
+priorityClassName: system-node-critical
+# 任何节点（包括控制面节点与未就绪节点）都必须运行 CNI，否则 Pod 网络建不起来。
+tolerations:
+  - operator: Exists
+    effect: NoSchedule
+  - operator: Exists
+    effect: NoExecute
+containers:
+  - name: kube-router
+    image: {{ .Image | quote }}
+    imagePullPolicy: IfNotPresent
+    command: {{ flags "kube-router" | argvSeq }}
+    # 节点名必须来自 downward API：DaemonSet + 参数 ConfigMap 都是**全集群一份**，
+    # 把 --hostname-override 写进共享 ConfigMap 会让所有节点都用最后渲染的那个名字
+    # （真机实测：m2 上 kube-router 用 --hostname-override=m3 去找 m3 的 IP，
+    # 直接 "failed to find interface with specified node ip" 崩溃）。
+    env:
+      - name: NODE_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: spec.nodeName
+    securityContext:
+      privileged: true
+      capabilities:
+        add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
+    livenessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /healthz
+        port: 20244
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 6
+    readinessProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /healthz
+        port: 20244
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    startupProbe:
+      httpGet:
+        host: 127.0.0.1
+        path: /healthz
+        port: 20244
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 5
+      failureThreshold: 30
+    volumeMounts:
+      - name: cni-config
+        mountPath: /etc/cni/net.d
+      - name: cni-bin
+        mountPath: /opt/cni/bin
+      - name: cni-data
+        mountPath: /var/lib/cni
+      - name: lib-modules
+        mountPath: /lib/modules
+        readOnly: true
+      # kubeconfig 来自 ServiceAccount token，随 ConfigMap 挂载。
+      - name: kube-router-config
+        mountPath: /var/lib/kube-router-config
+        readOnly: true
+      - name: xtables-lock
+        mountPath: /run/xtables.lock
+volumes:
+  - name: cni-config
+    hostPath:
+      path: /etc/cni/net.d
+      type: DirectoryOrCreate
+  - name: cni-bin
+    hostPath:
+      path: /opt/cni/bin
+      type: DirectoryOrCreate
+  - name: cni-data
+    hostPath:
+      path: /var/lib/cni
+      type: DirectoryOrCreate
+  - name: lib-modules
+    hostPath:
+      path: /lib/modules
+      type: Directory
+  - name: kube-router-config
+    configMap:
+      name: {{ .KubeRouterConfigMapName | quote }}
+      defaultMode: 0644
+  - name: xtables-lock
+    hostPath:
+      path: /run/xtables.lock
+      type: FileOrCreate

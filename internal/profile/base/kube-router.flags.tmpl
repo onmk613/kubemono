@@ -1,0 +1,11 @@
+{{ .Binary }}
+--run-router={{ .KubeRouterRunRouter }}
+--run-firewall={{ .KubeRouterRunFirewall }}
+--run-service-proxy=false
+--cluster-asn={{ .KubeRouterClusterASN }}
+--enable-overlay={{ .KubeRouterEnableOverlay }}
+--overlay-type={{ .KubeRouterOverlayType }}
+--enable-cni=false
+--kubeconfig={{ .KubeRouterKubeconfigFile }}
+--health-port={{ .KubeRouterHealthPort }}
+--metrics-port={{ .KubeRouterMetricsPort }}

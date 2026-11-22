@@ -1,0 +1,33 @@
+{{ .Binary }}
+{{- if .EtcdAdvertiseClientURLs }}
+--advertise-client-urls={{ join "," .EtcdAdvertiseClientURLs }}
+{{- end }}
+--auto-compaction-retention={{ .EtcdAutoCompactionRetention }}
+--cert-file={{ .EtcdServerCertFile }}
+--client-cert-auth=true
+--data-dir={{ .EtcdDataDir }}
+{{- if .EtcdInitialAdvertisePeerURLs }}
+--initial-advertise-peer-urls={{ join "," .EtcdInitialAdvertisePeerURLs }}
+{{- end }}
+{{- if .EtcdInitialCluster }}
+--initial-cluster={{ join "," .EtcdInitialCluster }}
+{{- end }}
+--initial-cluster-state={{ .EtcdInitialClusterState }}
+--key-file={{ .EtcdServerKeyFile }}
+{{- if .EtcdListenClientURLs }}
+--listen-client-urls={{ join "," .EtcdListenClientURLs }}
+{{- end }}
+--listen-metrics-urls={{ .EtcdMetricsURLs }}
+{{- if .EtcdListenPeerURLs }}
+--listen-peer-urls={{ join "," .EtcdListenPeerURLs }}
+{{- end }}
+{{- if .EtcdName }}
+--name={{ .EtcdName }}
+{{- end }}
+--peer-cert-file={{ .EtcdPeerCertFile }}
+--peer-client-cert-auth=true
+--peer-key-file={{ .EtcdPeerKeyFile }}
+--peer-trusted-ca-file={{ .EtcdPeerTrustedCAFile }}
+--quota-backend-bytes={{ .EtcdQuotaBackendBytes }}
+--snapshot-count={{ .EtcdSnapshotCount }}
+--trusted-ca-file={{ .EtcdServerTrustedCAFile }}
