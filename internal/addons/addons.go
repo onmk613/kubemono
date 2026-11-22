@@ -354,13 +354,13 @@ func MergeCorefile(existing, managed string) (string, error) {
 		begin := strings.Index(existing, CoreDNSBlockBegin)
 		end := strings.Index(existing, CoreDNSBlockEnd)
 		if end < begin {
-			return "", fmt.Errorf("Corefile 的 %q 在 %q 之前：标记顺序错误，拒绝合并", CoreDNSBlockEnd, CoreDNSBlockBegin)
+			return "", fmt.Errorf("解析 Corefile 失败：%q 在 %q 之前，标记顺序错误，拒绝合并", CoreDNSBlockEnd, CoreDNSBlockBegin)
 		}
 		before := existing[:begin]
 		after := strings.TrimPrefix(existing[end+len(CoreDNSBlockEnd):], "\n")
 		return before + managed + after, nil
 	default:
-		return "", fmt.Errorf("Corefile 的受管区块标记不完整（BEGIN=%d，END=%d）：拒绝合并，请手工修复后重跑 addon", begins, ends)
+		return "", fmt.Errorf("解析 Corefile 失败：受管区块标记不完整（BEGIN=%d，END=%d），拒绝合并，请手工修复后重跑 addon", begins, ends)
 	}
 }
 

@@ -382,6 +382,14 @@ func nodeConditionMessage(node *corev1.Node) string {
 	return "Node Ready 条件缺失"
 }
 
+func writef(w io.Writer, format string, args ...any) {
+	_, _ = fmt.Fprintf(w, format, args...)
+}
+
+func writeln(w io.Writer, args ...any) {
+	_, _ = fmt.Fprintln(w, args...)
+}
+
 func printTable(w io.Writer, rep *Report) {
 	pairs := map[string]string{
 		"configName":       rep.ConfigName,
@@ -396,29 +404,29 @@ func printTable(w io.Writer, rep *Report) {
 	}
 	_, _ = fmt.Fprint(w, term.KeyValuesAligned(pairs))
 	if rep.Certs != nil {
-		fmt.Fprintf(w, "\n证书：%d 张，%d 张进入窗口/已过期（最早到期 %s）\n",
+		writef(w, "\n证书：%d 张，%d 张进入窗口/已过期（最早到期 %s）\n",
 			rep.Certs.Total, rep.Certs.Expiring, valueOrDash(rep.Certs.Earliest))
 		for _, name := range rep.Certs.Names {
-			fmt.Fprintf(w, "  - %s\n", name)
+			writef(w, "  - %s\n", name)
 		}
 	}
 	if rep.DesiredFiles > 0 || len(rep.DesiredDrift) > 0 {
-		fmt.Fprintf(w, "\ndesired 快照：%d 个文件，%d 处漂移\n", rep.DesiredFiles, len(rep.DesiredDrift))
+		writef(w, "\ndesired 快照：%d 个文件，%d 处漂移\n", rep.DesiredFiles, len(rep.DesiredDrift))
 		for _, item := range rep.DesiredDrift {
-			fmt.Fprintf(w, "  - %s\n", item)
+			writef(w, "  - %s\n", item)
 		}
 	}
 	if len(rep.Pending) > 0 {
-		fmt.Fprintf(w, "\n待重启：%s\n", strings.Join(rep.Pending, "，"))
+		writef(w, "\n待重启：%s\n", strings.Join(rep.Pending, "，"))
 	}
 	if len(rep.Problems) > 0 {
-		fmt.Fprintln(w, "\n问题（--check 会返回非 0）：")
+		writeln(w, "\n问题（--check 会返回非 0）：")
 		for _, p := range rep.Problems {
-			fmt.Fprintf(w, "  - %s\n", p)
+			writef(w, "  - %s\n", p)
 		}
 	}
 	if len(rep.Phases) > 0 {
-		fmt.Fprintln(w, "\nphase 最近结果：")
+		writeln(w, "\nphase 最近结果：")
 		for _, p := range rep.Phases {
 			status := "未完成"
 			if p.Done {
@@ -430,11 +438,11 @@ func printTable(w io.Writer, rep *Report) {
 			if p.Error != "" {
 				status = "失败: " + p.Error
 			}
-			fmt.Fprintf(w, "  %-20s %s\n", p.Name, status)
+			writef(w, "  %-20s %s\n", p.Name, status)
 		}
 	}
 	if len(rep.Units) > 0 {
-		fmt.Fprintln(w, "\nunit：")
+		writeln(w, "\nunit：")
 		for _, u := range rep.Units {
 			req := ""
 			if u.Required {
@@ -450,14 +458,14 @@ func printTable(w io.Writer, rep *Report) {
 			if u.NextRun != "" {
 				extra += " next=" + u.NextRun
 			}
-			fmt.Fprintf(w, "  %-32s active=%s enabled=%s%s%s %s\n", u.Unit,
+			writef(w, "  %-32s active=%s enabled=%s%s%s %s\n", u.Unit,
 				boolValue(u.Active), boolValue(u.Enabled), req, extra, u.Error)
 		}
 	}
 	if rep.NodeReady != nil {
-		fmt.Fprintf(w, "\nNode Ready：%s %s\n", term.YesNo(*rep.NodeReady), rep.NodeMessage)
+		writef(w, "\nNode Ready：%s %s\n", term.YesNo(*rep.NodeReady), rep.NodeMessage)
 	} else if rep.NodeMessage != "" {
-		fmt.Fprintf(w, "\nNode：%s\n", rep.NodeMessage)
+		writef(w, "\nNode：%s\n", rep.NodeMessage)
 	}
 }
 

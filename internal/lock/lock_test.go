@@ -14,7 +14,7 @@ func TestAcquireIsExclusive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Acquire first: %v", err)
 	}
-	defer first.Close()
+	defer func() { _ = first.Close() }()
 
 	second, err := Acquire(path)
 	if err == nil {
