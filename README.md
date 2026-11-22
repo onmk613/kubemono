@@ -229,6 +229,8 @@ kubemono node repair -f cluster.yaml --diff
 
 同一 kubemono 版本内，`kubernetesVersion` 可以在**新建集群**时固定任意 Kubernetes 版本（见 §8）；与 BOM 默认版本不同时只打印 warning，兼容性由操作者负责。已有集群要换这个值，仍然只能新建集群后迁移。
 
+对外口径：理论兼容 `v1.31` 及以上；当前 BOM 基线与验证上限为 `v1.37.x`，更高版本未验证，不承诺上限。flag 级差异优先用 `extraArgs` / `node.kubelet.configPatch` 调整，但它们不能弥补上游已移除的 flag、配置 schema 变化或 etcd/CoreDNS/kube-router 等非 k8s 组件的版本差异。
+
 这样做是有意的产品边界，不是缺失功能：生产集群很少变动控制面版本，跨大版本通常也走“新建集群 + 迁移”，原地升级的复杂度与回滚风险不划算。
 
 ### 3.8 退出 / 重置

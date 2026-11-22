@@ -104,6 +104,9 @@ kubernetesVersion: v1.37.1
 - 它是全部 Kubernetes 组件（含 kube-proxy）的**唯一版本入口**：kube-apiserver、kube-controller-manager、kube-scheduler、kubelet、kube-proxy、kubectl 整组跟随；
 - 只要求 `vX.Y.Z` 稳定版格式；
 - 任意版本都允许，不限制最低 patch、小版本或兼容范围；
+- 兼容性口径：理论兼容 `v1.31` 及以上，不承诺上限；当前 BOM 基线与验证上限为 `v1.37.x`，更高版本未验证；
+- `extraArgs` / `node.kubelet.configPatch` 只能调整目标版本仍存在的 flag/config 字段；上游已移除的 flag、kube-proxy 配置 schema 变化，以及 etcd/CoreDNS/kube-router 等非 k8s 组件的版本窗口，不在覆盖范围内；
+- v1.31–v1.34 已 EOL，仅作理论兼容；生产建议使用上游仍支持的 minor；
 - 非空且与 BOM 不同时只打印 warning；生效 BOM 的 `kubernetes` 与 `release` 会同步改写，物料归档与 `meta.json` 都使用新 release；
 - 修改前必须准备对应 patch 的物料归档；版本变更通过新建集群完成，不做原地升级；
 - 不能再在 `images.componentVersions` 里单独固定 k8s 组件。
